@@ -1,54 +1,37 @@
-require_relative "errors"
-require_relative "types"
-
-module Mal
-  class Env
-    def initialize(outer = nil, binds = Types::List.new, exprs = Types::List.new)
-      @outer = outer
+class Env
+  attr_accessor :data
+  def initialize(outer=nil, binds=[], exprs=[])
       @data = {}
-
-      spread_next = false
-      binds.each_with_index do |b, i|
-        if b.value == "&"
-          spread_next = true
-        else
-          if spread_next
-            set(b, Types::List.new(exprs[(i - 1)..]) || Types::Nil.instance)
-            break
+      @outer = outer
+      binds.each_index do |i|
+          if binds[i] == :"&"
+              data[binds[i+1]] = exprs.drop(i)
+              break
           else
-            set(b, exprs[i] || Types::Nil.instance)
+              data[binds[i]] = exprs[i]
           end
-        end
       end
-    end
+      return self
+  end
 
-    def set(k, v)
-      @data[k] = v
-    end
-
-    def find(k)
-      if @data.key?(k)
-        self
-      elsif !@outer.nil?
-        @outer.find(k)
+  def find(key)
+      if @data.key? key
+          return self
+      elsif @outer
+          return @outer.find(key)
       else
-        Types::Nil.instance
+          return nil
       end
-    end
+  end
 
-    def get(k)
-      environment = find(k)
+  def set(key, value)
+      @data[key] = value
+      return value
+  end
 
-      case environment
-      when self.class
-        environment.get_value(k)
-      when Types::Nil
-        raise SymbolNotFoundError, "'#{k.value}' not found"
-      end
-    end
-
-    def get_value(k)
-      @data[k]
-    end
+  def get(key)
+      env = find(key)
+      raise "'" + key.to_s + "' not found" if not env
+      env.data[key]
   end
 end
